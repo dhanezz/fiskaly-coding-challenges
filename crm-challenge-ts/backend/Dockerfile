@@ -1,6 +1,8 @@
-FROM node:14-alpine
+#note: changed it to 15 so that it matches node defined in package.json
+FROM node:15.13 
 
-ENV NODE_ENV=production
+#note: commented out, explained in NOTES.md
+#ENV NODE_ENV=production
 
 WORKDIR /app
 COPY . /app/

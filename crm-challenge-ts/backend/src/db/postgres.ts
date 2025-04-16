@@ -10,8 +10,8 @@ const v1: Pool = new Pool({
   }
 );
 
-export default function queryDb(query: string):Promise<any[]> {
-  return v1.query(query)
+export default function queryDb(query: string, values: any[] = []):Promise<any[]> {
+  return v1.query(query, values)
     .then((res) => {
       return res.rows;
     })

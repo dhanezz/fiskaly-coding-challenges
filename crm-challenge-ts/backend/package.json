@@ -33,6 +33,8 @@
     "typescript": "^4.5.2"
   },
   "dependencies": {
+    "@fastify/type-provider-typebox": "^5.1.0",
+    "@sinclair/typebox": "^0.34.33",
     "axios": "^0.24.0",
     "dotenv": "^10.0.0",
     "env-schema": "^3.5.0",
@@ -47,7 +49,9 @@
     "http-errors": "^1.8.1",
     "make-promises-safe": "^5.1.0",
     "pg": "^8.7.1",
-    "pg-format": "^1.0.4"
+    "pg-format": "^1.0.4",
+    "sanitize-html": "^2.15.0",
+    "uuid": "^11.1.0"
   },
   "prettier": {
     "arrowParens": "always",

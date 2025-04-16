@@ -1,51 +1,80 @@
 import { FastifyRequest, FastifyReply, FastifyInstance } from 'fastify';
-import { getCustomer } from '../../db/queries';
+import { getCustomer, getAllCustomers, createCustomer } from '../../db/queries';
+import { Any, Type } from '@sinclair/typebox';
+import { onlyLetterRegex } from '../../utils/regexPattern';
 
+// Notes: Helps validations + makes code cleaner
+const Customer = Type.Object({
+  customer_id: Type.Optional(Type.String({format: 'uuid'})),
+  first_name: Type.String({minLength: 1, pattern: onlyLetterRegex }),
+  last_name: Type.String({minLength: 1, pattern: onlyLetterRegex }),
+  mail: Type.String({format: 'email'}),
+  tss_id: Type.Optional(Type.String({format: 'uuid'})),
+})
+
+const CustomerArray = Type.Array(Customer);
+const RequiredCustomerIdOnly = Type.Required(Type.Pick(Customer, ['customer_id']));
 
 export default async function customer(fastify: FastifyInstance){
+  //POST - Customer by customer_id
   fastify.route({
     method: 'POST',
     url: '/customer',
     schema: {
       response: {
-        200: {
-          type: 'array',
-          items: {
-            customer_id: {
-              type: 'string'
-            },
-            first_name: {
-              type: 'string'
-            },
-            last_name: {
-              type: 'string'
-            },
-            mail: {
-              type: 'string'
-            }
-          }
-        }
+        200: CustomerArray
       },
-      body: {
-        type: 'object',
-        properties: {
-          customer: { type: 'string' }
-        },
-        required: ['customer_id']
+      body: RequiredCustomerIdOnly
+    },
+    handler: getCustomerByIdHandler
+  });
+  
+  //GET - all customers
+  fastify.route({
+    method: 'GET',
+    url: '/customers',
+    schema: {
+      response: {
+        200: CustomerArray
       }
     },
-    // this function is executed for every request before the handler is executed
-    preHandler: (request: FastifyRequest, reply: FastifyReply, done) => {
-      // E.g. check authentication
-      done();
-    },
-    handler: async (request: FastifyRequest, reply: FastifyReply) => {
-      // @ts-ignore
-      const customerId: string = request.body['customer_id'];
-      console.log(request.body);
-      const customerResult: string[] = await getCustomer(customerId);
-
-      reply.send(customerResult);
-    }
+    handler: getAllCustomerHandler
   });
+
+  //POST - Create new customer
+  fastify.route({
+    method: 'POST',
+    url: '/customer/new',
+    schema: {
+      body: Customer,
+      response: {
+        201: Customer
+      }
+    },
+    handler:createCustomerHandler
+  });
+}
+
+
+// HANDLERS START //
+const getCustomerByIdHandler = async (request: FastifyRequest, reply: FastifyReply) => {
+  // @ts-ignore
+  const customerId: string = request.body['customer_id'];
+  const customerResult: string[] = await getCustomer(customerId);
+
+  reply.send(customerResult);
+}
+
+const getAllCustomerHandler = async (request: FastifyRequest, reply: FastifyReply) => {
+  // @ts-ignore
+  const customersResult: string[] = await getAllCustomers();
+  reply.send(customersResult);
+}
+
+const createCustomerHandler = async (request: FastifyRequest, reply: FastifyReply) => {
+  const customer:any = request.body;
+  console.log(request.body);
+  //note: should actually sanitize first before inserting, to prevent injections/xss-attacks
+  const newCustomer = await createCustomer(customer["first_name"], customer["last_name"], customer["mail"]);
+  reply.code(201).send(newCustomer[0]);
 }

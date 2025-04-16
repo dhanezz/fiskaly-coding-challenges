@@ -7,7 +7,7 @@ containing elements from frontend development, backend development as well as da
 handling. Now let's jump right into it! 
 
 ### Prerequisites:
-- docker
+- docker, Node (v15.13)
 
 ### Setup: 
 - run `setup.sh`. This will start 3 docker containers, one each for frontend, backend, and a postgres server, respectively. 
