@@ -7,7 +7,8 @@ const config =  {
   },
   BACKEND_URL: {
     type: 'string',
-    default: 'http://0.0.0.0',
+    // default: 'http://0.0.0.0',
+    default: 'http://localhost',
   },
   BACKEND_PORT: {
     type: 'number',
@@ -21,4 +22,6 @@ export const schema = {
   properties: config,
 };
 
-export default envSchema({ schema });
+export default envSchema({
+  schema
+}); 
