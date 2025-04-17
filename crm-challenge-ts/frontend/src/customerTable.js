@@ -20,8 +20,11 @@ export default function CustomerTable(props) {
   const [showAlert, setShowAlert] = useState(false);
   const [searchString, setSearchString] = useState('');
   const [alertData, setAlertData] = useState({type: 'error', message: ''});
+  const [validated, setValidated] = useState(false);
+  const [generating, setGenerating] = useState({state: false, key: ''});
 
   const API_BASE_URL = `${config.BACKEND_URL}:${config.BACKEND_PORT}`;
+  const onlyLetterRegex = "^[a-zA-Z]+$";
 
   const triggerAlert = (type, message) => {
     if(type !== 'error' && type !== 'success')
@@ -35,7 +38,7 @@ export default function CustomerTable(props) {
     setTimeout(() => setShowAlert(false), 3000);
   }
 
-  const fetchAllCustomers = async () => {
+  const fetchAllCustomers = () => {
     setLoading(true);
     axios
       .get(`${API_BASE_URL}/customers`)
@@ -46,13 +49,20 @@ export default function CustomerTable(props) {
       .finally(() => setLoading(false));
   }
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = (e) => {
     e.preventDefault();
-    setSubmiting(true);
-    
     const form = e.target;
-    const formData = new FormData(form);
 
+    if (!form.checkValidity()) {
+      e.stopPropagation();
+      setValidated(true)
+      return;
+    }
+
+    setSubmiting(true);
+
+    const formData = new FormData(form);
+    //note: should also add html sanatize to avoid xss-attacks but since it's already validating for letter only its fine
     const customer = {
       first_name: formData.get("first_name"),
       last_name: formData.get("last_name"),
@@ -67,7 +77,7 @@ export default function CustomerTable(props) {
           form.reset();
           triggerAlert("success", "Customer was successfuly created.");
         } else if(res.status === 400) {
-          triggerAlert("error", "Invalid Inputs. Please only entere valid First Name and Last Name.");
+          triggerAlert("error", "Invalid Inputs. Please only enter valid First Name and Last Name.");
         }
       })
       .catch((err) => {
@@ -77,12 +87,39 @@ export default function CustomerTable(props) {
       .finally(() => {
         setShowModal(false);
         setSubmiting(false);
+        setValidated(false);
       });
   }
 
   const searchInputHandler = (e) => {
     const lowerCaseVal = e.target.value.toLowerCase();
     setSearchString(lowerCaseVal);
+  }
+
+  const generateTssId = (customerId) => {
+    setGenerating({ state: true, key: customerId });
+    axios
+      .put(`${API_BASE_URL}/customer/generateTssId/${customerId}`)
+      .then((res) => {
+        if (res.status === 200) {
+          setCustomers((prev) => {
+            const index = prev.findIndex(cu => cu.customer_id === res.data.customer_id);
+            if(index === -1) return prev;
+
+            const customers = [...prev];
+            customers[index] = res.data;
+            return customers;
+          })
+          triggerAlert("success", "Customer tss_id was succesfully generated.");
+        }
+      })
+      .catch((err) => {
+        triggerAlert("error", "Failed to generate tss_id customer.");
+        console.log("Failed to add customer", err);
+      })
+      .finally(() => {
+        setGenerating({ state: false });
+      });
   }
 
   const renderCustomerListHTML = (searchString, customers) => {
@@ -100,12 +137,30 @@ export default function CustomerTable(props) {
           <td>{customer.first_name}</td>
           <td>{customer.last_name}</td>
           <td>{customer.mail}</td>
+          <td>
+            {customer.tss_id === "" ? (
+              <Button
+                variant="primary"
+                onClick={() => generateTssId(customer.customer_id)}
+                disabled={generating.state}
+                key={customer.customer_id}
+              >
+                {generating.state && generating.key === customer.customer_id ? (
+                  <Spinner animation="border" />
+                ) : (
+                  "Generate TSS ID"
+                )}
+              </Button>
+            ) : (
+              ""
+            )}
+          </td>
         </tr>
       ));
     } else {
       return (
         <tr>
-          <td colSpan={4}>Keine Einträge gefunden</td>
+          <td colSpan={5}>Keine Einträge gefunden</td>
         </tr>
       );
     }
@@ -126,52 +181,60 @@ export default function CustomerTable(props) {
       )}
 
       <Card className="rounded mx-4">
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "between",
-            marginBottom: "30px",
-          }}
-        >
-          <InputGroup className="mb-3">
-            <InputGroup.Text>Search</InputGroup.Text>
-            <Form.Control
-              value={searchString}
-              onChange={searchInputHandler}
-              placeholder="Search for a last name"
-            />
-          </InputGroup>
-          <Button variant="primary" onClick={() => setShowModal(true)}>
-            Add New Customer
-          </Button>
-        </div>
+        <Card.Body>
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "cemter",
+              marginBottom: "30px",
+            }}
+          >
+            <div>
+              <InputGroup className="mb-3">
+                <InputGroup.Text>Search</InputGroup.Text>
+                <Form.Control
+                  value={searchString}
+                  onChange={searchInputHandler}
+                  placeholder="Search for a last name"
+                />
+              </InputGroup>
+            </div>
+            <div>
+              <Button variant="primary" onClick={() => setShowModal(true)}>
+                Add New Customer
+              </Button>
+            </div>
+          </div>
 
-        <Table striped bordered style={{ margin: "10px" }}>
-          <thead>
-            <tr>
-              <th>TSS_ID</th>
-              <th>Firstname</th>
-              <th>Lastname</th>
-              <th>Mail</th>
-            </tr>
-          </thead>
-          <tbody>
-            {loading && (
+          <Table responsive striped bordered size='md'>
+            <thead>
               <tr>
-                <td colSpan={4}>
-                  <Spinner animation="border" />
-                </td>
+                <th>TSS_ID</th>
+                <th>Firstname</th>
+                <th>Lastname</th>
+                <th>Mail</th>
+                <th>Action</th>
               </tr>
-            )}
+            </thead>
+            <tbody>
+              {loading && (
+                <tr>
+                  <td colSpan={4}>
+                    <Spinner animation="border" />
+                  </td>
+                </tr>
+              )}
 
-            {!loading && renderCustomerListHTML(searchString, customers)}
-          </tbody>
-        </Table>
+              {!loading && renderCustomerListHTML(searchString, customers)}
+            </tbody>
+          </Table>
+        </Card.Body>
       </Card>
 
       <Modal show={showModal} onHide={() => setShowModal(false)}>
         <Modal.Header closeButton>Create A New Customer</Modal.Header>
-        <Form onSubmit={handleSubmit}>
+        <Form noValidate validated={validated} onSubmit={handleSubmit}>
           <Modal.Body>
             <Form.Group>
               <Form.Label>First Name</Form.Label>
@@ -180,7 +243,11 @@ export default function CustomerTable(props) {
                 name="first_name"
                 required
                 placeholder="First Name"
+                pattern={onlyLetterRegex}
               />
+              <Form.Control.Feedback type="invalid">
+                Please enter a valid first name (alphabetic characters only).
+              </Form.Control.Feedback>
             </Form.Group>
 
             <Form.Group>
@@ -190,7 +257,11 @@ export default function CustomerTable(props) {
                 name="last_name"
                 required
                 placeholder="Last Name"
+                pattern={onlyLetterRegex}
               />
+              <Form.Control.Feedback type="invalid">
+                Please enter a valid last name (alphabetic characters only).
+              </Form.Control.Feedback>
             </Form.Group>
 
             <Form.Group>
@@ -201,6 +272,9 @@ export default function CustomerTable(props) {
                 required
                 placeholder="Email"
               />
+              <Form.Control.Feedback type="invalid">
+                Please enter a valid email (e.g. maxmustermann@muster.com).
+              </Form.Control.Feedback>
             </Form.Group>
           </Modal.Body>
           <Modal.Footer>

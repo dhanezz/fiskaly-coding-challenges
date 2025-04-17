@@ -1,5 +1,5 @@
 import { FastifyRequest, FastifyReply, FastifyInstance } from 'fastify';
-import { getCustomer, getAllCustomers, createCustomer } from '../../db/queries';
+import { getCustomer, getAllCustomers, createCustomer, generateUniqueTssId } from '../../db/queries';
 import { Any, Type } from '@sinclair/typebox';
 import { onlyLetterRegex } from '../../utils/regexPattern';
 
@@ -53,8 +53,20 @@ export default async function customer(fastify: FastifyInstance){
     },
     handler:createCustomerHandler
   });
-}
 
+  //PUT - Generate new TSS ID
+  fastify.route({
+    method: 'PUT',
+    url:'/customer/generateTssId/:customer_id',
+    schema: {
+      params: RequiredCustomerIdOnly,
+      response: {
+        200: Customer          
+      }
+    },
+    handler: generateUniqueTssIdHandler
+  })
+}
 
 // HANDLERS START //
 const getCustomerByIdHandler = async (request: FastifyRequest, reply: FastifyReply) => {
@@ -73,8 +85,13 @@ const getAllCustomerHandler = async (request: FastifyRequest, reply: FastifyRepl
 
 const createCustomerHandler = async (request: FastifyRequest, reply: FastifyReply) => {
   const customer:any = request.body;
-  console.log(request.body);
   //note: should actually sanitize first before inserting, to prevent injections/xss-attacks
   const newCustomer = await createCustomer(customer["first_name"], customer["last_name"], customer["mail"]);
   reply.code(201).send(newCustomer[0]);
+}
+
+const generateUniqueTssIdHandler = async (request: FastifyRequest, reply: FastifyReply) => {
+  const customer:any = request.params;
+  const result = await generateUniqueTssId(customer.customer_id);
+  reply.send(result[0]);
 }
