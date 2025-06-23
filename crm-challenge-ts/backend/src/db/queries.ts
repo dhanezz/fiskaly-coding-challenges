@@ -30,15 +30,13 @@ export async function generateUniqueTssId(customerId: string, onlyId: boolean = 
 
   if(existingCustomer.length > 0)
   {
-    generateUniqueTssId(customerId);
-  } else {
-    const queryString: string = `
-      UPDATE customers SET tss_id=$1 WHERE customer_id = (SELECT customer_id FROM customers WHERE customer_id = $2 ORDER BY last_name LIMIT 1) RETURNING *
-    `
-    return queryDb(queryString, [tssId, customerId])
+    return generateUniqueTssId(customerId);
   }
 
-  throw new Error("Function not implemented yet.");
+  const queryString: string = `
+      UPDATE customers SET tss_id= $1 WHERE customer_id = (SELECT customer_id FROM customers WHERE customer_id = $2 ORDER BY last_name LIMIT 1) RETURNING *
+    `
+    return queryDb(queryString, [tssId, customerId])
 }
 
 export function getCustomerByTssId(tssId: string): Promise<string[]> {
